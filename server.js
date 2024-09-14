@@ -101,10 +101,10 @@ const client = new Client({
 
   async function indexData() {
     const connection = await mysql.createConnection({
-      host: 'junction.proxy.rlwy.net',
-  user: 'root',
-  password: 'LYeEmRNSylYdEYtMziwUtAOXTZniYJbg',
-  database: 'railway',
+      host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQL_DATABASE,
     });
 
     await deleteIndexIfExists();
