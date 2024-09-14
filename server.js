@@ -48,12 +48,12 @@ app.get('/test-connection', async (req, res) => {
 
 
 const client = new Client({
-  node: 'http://elasticsearch-production-dc58.up.railway.app:9200',
-    auth: {
-      username: 'elastic', // Your Elasticsearch username
-      password: 'yxbv3sthq6azmytuawcrdynks1a9stww' // Your Elasticsearch password
-    }
-  });
+  node: process.env.ELASTICSEARCH_NODE,
+  auth: {
+    username: process.env.ELASTICSEARCH_USERNAME,
+    password: process.env.ELASTICSEARCH_PASSWORD,
+  },
+});
 
   async function deleteIndexIfExists() {
     const indexExists = await client.indices.exists({ index: 'jud' });
@@ -100,15 +100,16 @@ const client = new Client({
   }
 
   async function indexData() {
-    const connection = await mysql.createConnection({
-      host: process.env.MYSQLHOST,
-  user: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  database: process.env.MYSQL_DATABASE,
-    });
+  const connection = await mysql.createConnection({
+    host: process.env.MYSQLHOST,
+    user: process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQL_DATABASE,
+    port: parseInt(process.env.MYSQLPORT, 10),
+  });
 
-    await deleteIndexIfExists();
-    await createIndexWithMapping();
+  await deleteIndexIfExists();
+  await createIndexWithMapping();
 
     const [judgmentTextParas] = await connection.execute(
       `SELECT jtp.*, jt.judgmentId, j.judgmentDOJ, j.judgmentParties, j.judgmentCitation, c.courtName
