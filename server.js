@@ -1,8 +1,12 @@
 import express from 'express';
-import { Sequelize } from 'sequelize';
+import { Sequelize, DataTypes, Op } from 'sequelize';
 import cors from 'cors';
-import mysql from 'mysql2/promise';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { Client } from '@elastic/elasticsearch';
 import dotenv from 'dotenv';
+import mysql from 'mysql2/promise';
 
 dotenv.config();
 
