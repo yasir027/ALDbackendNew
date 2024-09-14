@@ -14,17 +14,19 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-const sequelize = new Sequelize('sys', 'root', 'aldonline123', {
-  host: 'localhost',
+const sequelize = new Sequelize('railway', 'root', 'LYeEmRNSylYdEYtMziwUtAOXTZniYJbg', {
+  host: 'junction.proxy.rlwy.net',
   dialect: 'mysql',
+  port: 12627,
 });
 
 const pool = mysql.createPool({
   connectionLimit: 10,
-  host: "localhost",
-  user: "root",
-  password: "aldonline123",
-  database: "sys",
+  host: 'junction.proxy.rlwy.net',
+  user: 'root',
+  password: 'LYeEmRNSylYdEYtMziwUtAOXTZniYJbg',
+  database: 'railway',
+  port: 12627,
 });
 
 
@@ -32,10 +34,10 @@ const pool = mysql.createPool({
 
 
 const client = new Client({
-    node: 'http://localhost:9200',
+  node: 'http://elasticsearch-production-dc58.up.railway.app:9200',
     auth: {
       username: 'elastic', // Your Elasticsearch username
-      password: 'aldonline123' // Your Elasticsearch password
+      password: 'yxbv3sthq6azmytuawcrdynks1a9stww' // Your Elasticsearch password
     }
   });
 
@@ -85,10 +87,10 @@ const client = new Client({
 
   async function indexData() {
     const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: 'aldonline123',
-      database: 'sys'
+      host: 'junction.proxy.rlwy.net',
+  user: 'root',
+  password: 'LYeEmRNSylYdEYtMziwUtAOXTZniYJbg',
+  database: 'railway',
     });
 
     await deleteIndexIfExists();
@@ -227,238 +229,249 @@ const client = new Client({
 
 
   app.post('/api/freeword-search', async (req, res) => {
-      const { searchWords } = req.body;
+    const { searchWords } = req.body;
 
-      if (!searchWords || searchWords.length === 0) {
-          return res.status(400).json({ error: 'At least one search word is required' });
-      }
+    if (!searchWords || searchWords.length === 0) {
+        return res.status(400).json({ error: 'At least one search word is required' });
+    }
 
-      try {
-          const mustQueries = searchWords.map(word => ({
-              bool: {
-                  should: [
-                      { match: { 'judgementTextParaText': word } },
-                      { match: { 'shortNoteText': word } },
-                      { match: { 'longNoteParaText': word } },
-                      { match: { 'shortNoteParaText': word } }
-                  ]
-              }
-          }));
+    try {
+        const mustQueries = searchWords.map(word => ({
+            bool: {
+                should: [
+                    { match: { 'judgementTextParaText': word } },
+                    { match: { 'shortNoteText': word } },
+                    { match: { 'longNoteParaText': word } },
+                    { match: { 'shortNoteParaText': word } }
+                ]
+            }
+        }));
 
-          const result = await client.search({
-              index: 'jud',
-              body: {
-                  query: {
-                      bool: {
-                          must: mustQueries
-                      }
-                  },
-                  _source: ['judgmentId', 'judgmentDOJ', 'judgmentParties', 'judgmentCitation', 'courtName'],
-                  size: 20000
-              }
-          });
+        const result = await client.search({
+            index: 'jud',
+            body: {
+                query: {
+                    bool: {
+                        must: mustQueries
+                    }
+                },
+                _source: ['judgmentId', 'judgmentDOJ', 'judgmentParties', 'judgmentCitation', 'courtName'],
+                size: 20000
+            }
+        });
 
-          console.log('Elasticsearch search result:', result.hits.hits);
+        console.log('Elasticsearch search result:', result.hits.hits);
 
-          // Filter out duplicates based on judgmentId
-          const uniqueHits = [];
-          const seenJudgmentIds = new Set();
+        // Filter out duplicates based on judgmentId
+        const uniqueHits = [];
+        const seenJudgmentIds = new Set();
 
-          for (const hit of result.hits.hits) {
-              const judgmentId = hit._source.judgmentId;
-              if (!seenJudgmentIds.has(judgmentId)) {
-                  seenJudgmentIds.add(judgmentId);
-                  uniqueHits.push({
-                      judgmentId,
-                      judgmentDOJ: hit._source.judgmentDOJ,
-                      judgmentParties: hit._source.judgmentParties,
-                      judgmentCitation: hit._source.judgmentCitation,
-                      courtName: hit._source.courtName
-                  });
-              }
-          }
+        for (const hit of result.hits.hits) {
+            const judgmentId = hit._source.judgmentId;
+            if (!seenJudgmentIds.has(judgmentId)) {
+                seenJudgmentIds.add(judgmentId);
+                uniqueHits.push({
+                    judgmentId,
+                    judgmentDOJ: hit._source.judgmentDOJ,
+                    judgmentParties: hit._source.judgmentParties,
+                    judgmentCitation: hit._source.judgmentCitation,
+                    courtName: hit._source.courtName
+                });
+            }
+        }
 
-          res.json(uniqueHits);
-      } catch (error) {
-          console.error('Error performing freeword search:', error);
-          res.status(500).json({ error: 'Internal Server Error' });
-      }
-  });
-
-app.get('/api/searchAdvanced', async (req, res) => {
-  const acts = Array.isArray(req.query.acts) ? req.query.acts : req.query.acts ? [req.query.acts] : [];
-  const sections = Array.isArray(req.query.sections) ? req.query.sections : req.query.sections ? [req.query.sections] : [];
-  const subsections = Array.isArray(req.query.subsections) ? req.query.subsections : req.query.subsections ? [req.query.subsections] : [];
-  const topics = Array.isArray(req.query.topics) ? req.query.topics : req.query.topics ? [req.query.topics] : [];
-  const judges = Array.isArray(req.query.judges) ? req.query.judges : req.query.judges ? [req.query.judges] : [];
-  const advocates = Array.isArray(req.query.advocates) ? req.query.advocates : req.query.advocates ? [req.query.advocates] : [];
-  const queryText = req.query.queryText || ''; // Free word search
-
-  if (acts.length === 0 && sections.length === 0 && subsections.length === 0 && topics.length === 0 && judges.length === 0 && advocates.length === 0 && !queryText) {
-      return res.status(400).json({ error: 'At least one search parameter is required' });
-  }
-
-  try {
-    const results = await getJudgmentsByMultipleCriteria(acts, sections, subsections, topics, judges, advocates, queryText);
-    res.json(results);
-  } catch (error) {
-    console.error('Error executing advanced search:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+        res.json(uniqueHits);
+    } catch (error) {
+        console.error('Error performing freeword search:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
-export async function getJudgmentsByMultipleCriteria(actKeywords, sectionKeywords, subsectionKeywords, topicKeywords, judgeKeywords, advocateKeywords) {
-  let connection;
-  try {
-      connection = await pool.getConnection();
-
-      let query = `
-          SELECT DISTINCT
-              j.judgmentId,
-              j.judgmentCitation,
-              j.judgmentParties,
-              a.advocateName,
-              j.judgmentDOJ,
-              c.courtName,
-              l.legislationName,
-              CONCAT(ls.legislationSectionPrefix, ' ', ls.legislationSectionNo) AS legislationSectionCombined,
-              ls.legislationSectionName,
-              lss.legislationSubSectionName
-          FROM 
-              judgment j
-              LEFT JOIN court c ON j.courtId = c.courtId
-              LEFT JOIN shortnote sn ON j.judgmentId = sn.judgmentId
-              LEFT JOIN shortnoteleg snl ON sn.shortNoteId = snl.shortNoteId
-              LEFT JOIN legislation l ON snl.legislationId = l.legislationId
-              LEFT JOIN shortnotelegsec snls ON sn.shortNoteId = snls.shortNoteId
-              LEFT JOIN legislationsection ls ON snls.legislationSectionId = ls.legislationSectionId
-              LEFT JOIN shortnotelegsubsec snlss ON sn.shortNoteId = snlss.shortNoteId
-              LEFT JOIN legislationsubsection lss ON snlss.legislationSubSectionId = lss.legislationSubSectionId
-              LEFT JOIN judgmenttopics jt ON j.judgmentId = jt.judgmentId
-              LEFT JOIN topic t ON jt.topicId = t.topicId
-              LEFT JOIN judgmentjudges jj ON j.judgmentId = jj.judgmentId
-              LEFT JOIN judge ju ON jj.judgeId = ju.judgeId
-              LEFT JOIN judgmentadvocates ja ON j.judgmentId = ja.judgmentId
-              LEFT JOIN advocate a ON ja.advocateId = a.advocateId
-          WHERE 
-      `;
-
-      const conditions = [];
-
-      if (actKeywords.length > 0) {
-          actKeywords.forEach(kw => {
-              conditions.push(`
-                  EXISTS (
-                      SELECT 1 
-                      FROM shortnote sn
-                      JOIN shortnoteleg snl ON sn.shortNoteId = snl.shortNoteId
-                      JOIN legislation l ON snl.legislationId = l.legislationId
-                      WHERE sn.judgmentId = j.judgmentId 
-                      AND l.legislationName LIKE ?
-                  )
-              `);
-          });
-      }
-
-      if (sectionKeywords.length > 0) {
-          sectionKeywords.forEach(kw => {
-              conditions.push(`
-                  EXISTS (
-                      SELECT 1 
-                      FROM shortnote sn
-                      JOIN shortnotelegsec snls ON sn.shortNoteId = snls.shortNoteId
-                      JOIN legislationsection ls ON snls.legislationSectionId = ls.legislationSectionId
-                      WHERE sn.judgmentId = j.judgmentId 
-                      AND CONCAT(ls.legislationSectionPrefix, ' ', ls.legislationSectionNo) LIKE ?
-                  )
-              `);
-          });
-      }
-
-      if (subsectionKeywords.length > 0) {
-          subsectionKeywords.forEach(kw => {
-              conditions.push(`
-                  EXISTS (
-                      SELECT 1 
-                      FROM shortnote sn
-                      JOIN shortnotelegsubsec snlss ON sn.shortNoteId = snlss.shortNoteId
-                      JOIN legislationsubsection lss ON snlss.legislationSubSectionId = lss.legislationSubSectionId
-                      WHERE sn.judgmentId = j.judgmentId 
-                      AND lss.legislationSubSectionName LIKE ?
-                  )
-              `);
-          });
-      }
-
-      if (topicKeywords.length > 0) {
-          topicKeywords.forEach(kw => {
-              conditions.push(`
-                  EXISTS (
-                      SELECT 1 
-                      FROM judgmenttopics jt
-                      JOIN topic t ON jt.topicId = t.topicId
-                      WHERE jt.judgmentId = j.judgmentId 
-                      AND t.topicName LIKE ?
-                  )
-              `);
-          });
-      }
-
-      if (judgeKeywords.length > 0) {
-          judgeKeywords.forEach(kw => {
-              conditions.push(`
-                  EXISTS (
-                      SELECT 1 
-                      FROM judgmentjudges jj
-                      JOIN judge ju ON jj.judgeId = ju.judgeId
-                      WHERE jj.judgmentId = j.judgmentId 
-                      AND ju.judgeName LIKE ?
-                  )
-              `);
-          });
-      }
-
-      if (advocateKeywords.length > 0) {
-          advocateKeywords.forEach(kw => {
-              conditions.push(`
-                  EXISTS (
-                      SELECT 1 
-                      FROM judgmentadvocates ja
-                      JOIN advocate a ON ja.advocateId = a.advocateId
-                      WHERE ja.judgmentId = j.judgmentId 
-                      AND a.advocateName LIKE ?
-                  )
-              `);
-          });
-      }
-
-      query += conditions.join(' AND ');
-
-      query += `
-          ORDER BY 
-              j.judgmentCitation DESC
-      `;
-
-      const queryParams = [
-          ...actKeywords.map(kw => `%${kw}%`),
-          ...sectionKeywords.map(kw => `%${kw}%`),
-          ...subsectionKeywords.map(kw => `%${kw}%`),
-          ...topicKeywords.map(kw => `%${kw}%`),
-          ...judgeKeywords.map(kw => `%${kw}%`),
-          ...advocateKeywords.map(kw => `%${kw}%`)
-      ];
-
-      const [rows] = await connection.execute(query, queryParams);
-      return rows;
-  } catch (error) {
-      console.error('Error executing query:', error);
-      throw error;
-  } finally {
-      if (connection) {
-          connection.release();
-      }
+  app.get('/api/searchAdvanced', async (req, res) => {
+    const acts = Array.isArray(req.query.acts) ? req.query.acts : req.query.acts ? [req.query.acts] : [];
+    const sections = Array.isArray(req.query.sections) ? req.query.sections : req.query.sections ? [req.query.sections] : [];
+    const subsections = Array.isArray(req.query.subsections) ? req.query.subsections : req.query.subsections ? [req.query.subsections] : [];
+    const topics = Array.isArray(req.query.topics) ? req.query.topics : req.query.topics ? [req.query.topics] : [];
+    const judges = Array.isArray(req.query.judges) ? req.query.judges : req.query.judges ? [req.query.judges] : [];
+    const advocates = Array.isArray(req.query.advocates) ? req.query.advocates : req.query.advocates ? [req.query.advocates] : [];
+    const queryText = req.query.queryText || ''; // Free word search
+  
+    if (acts.length === 0 && sections.length === 0 && subsections.length === 0 && topics.length === 0 && judges.length === 0 && advocates.length === 0 && !queryText) {
+        return res.status(400).json({ error: 'At least one search parameter is required' });
+    }
+  
+    try {
+      const results = await getJudgmentsByMultipleCriteria(acts, sections, subsections, topics, judges, advocates, queryText);
+      res.json(results);
+    } catch (error) {
+      console.error('Error executing advanced search:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+  
+  export async function getJudgmentsByMultipleCriteria(actKeywords, sectionKeywords, subsectionKeywords, topicKeywords, judgeKeywords, advocateKeywords) {
+    let connection;
+    try {
+        connection = await pool.getConnection();
+  
+        let query = `
+            SELECT DISTINCT
+                j.judgmentId,
+                j.judgmentCitation,
+                j.judgmentParties,
+                a.advocateName,
+                j.judgmentDOJ,
+                c.courtName,
+                l.legislationName,
+                CONCAT(ls.legislationSectionPrefix, ' ', ls.legislationSectionNo) AS legislationSectionCombined,
+                ls.legislationSectionName,
+                lss.legislationSubSectionName
+            FROM 
+                judgment j
+                LEFT JOIN court c ON j.courtId = c.courtId
+                LEFT JOIN shortnote sn ON j.judgmentId = sn.judgmentId
+                LEFT JOIN shortnoteleg snl ON sn.shortNoteId = snl.shortNoteId
+                LEFT JOIN legislation l ON snl.legislationId = l.legislationId
+                LEFT JOIN shortnotelegsec snls ON sn.shortNoteId = snls.shortNoteId
+                LEFT JOIN legislationsection ls ON snls.legislationSectionId = ls.legislationSectionId
+                LEFT JOIN shortnotelegsubsec snlss ON sn.shortNoteId = snlss.shortNoteId
+                LEFT JOIN legislationsubsection lss ON snlss.legislationSubSectionId = lss.legislationSubSectionId
+                LEFT JOIN judgmenttopics jt ON j.judgmentId = jt.judgmentId
+                LEFT JOIN topic t ON jt.topicId = t.topicId
+                LEFT JOIN judgmentjudges jj ON j.judgmentId = jj.judgmentId
+                LEFT JOIN judge ju ON jj.judgeId = ju.judgeId
+                LEFT JOIN judgmentadvocates ja ON j.judgmentId = ja.judgmentId
+                LEFT JOIN advocate a ON ja.advocateId = a.advocateId
+            WHERE 
+        `;
+  
+        const conditions = [];
+  
+        // Add conditions for actKeywords
+        if (actKeywords.length > 0) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM shortnote sn
+                    JOIN shortnoteleg snl ON sn.shortNoteId = snl.shortNoteId
+                    JOIN legislation l ON snl.legislationId = l.legislationId
+                    WHERE sn.judgmentId = j.judgmentId 
+                    AND (${actKeywords.map(kw => `l.legislationName LIKE ?`).join(' OR ')})
+                )`
+            );
+        }
+  
+        // Add conditions for sectionKeywords and subsectionKeywords with AND logic between them
+        if (sectionKeywords.length > 0 && subsectionKeywords.length > 0) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM shortnote sn
+                    JOIN shortnotelegsec snls ON sn.shortNoteId = snls.shortNoteId
+                    JOIN legislationsection ls ON snls.legislationSectionId = ls.legislationSectionId
+                    JOIN shortnotelegsubsec snlss ON sn.shortNoteId = snlss.shortNoteId
+                    JOIN legislationsubsection lss ON snlss.legislationSubSectionId = lss.legislationSubSectionId
+                    WHERE sn.judgmentId = j.judgmentId 
+                    AND (${sectionKeywords.map(kw => `CONCAT(ls.legislationSectionPrefix, ' ', ls.legislationSectionNo) LIKE ?`).join(' OR ')})
+                    AND (${subsectionKeywords.map(kw => `lss.legislationSubSectionName = ?`).join(' OR ')})
+                )`
+            );
+        } else if (sectionKeywords.length > 0) {
+            // Handle case where only section is provided
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM shortnote sn
+                    JOIN shortnotelegsec snls ON sn.shortNoteId = snls.shortNoteId
+                    JOIN legislationsection ls ON snls.legislationSectionId = ls.legislationSectionId
+                    WHERE sn.judgmentId = j.judgmentId 
+                    AND (${sectionKeywords.map(kw => `CONCAT(ls.legislationSectionPrefix, ' ', ls.legislationSectionNo) LIKE ?`).join(' OR ')})
+                )`
+            );
+        } else if (subsectionKeywords.length > 0) {
+            // Handle case where only subsection is provided
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM shortnote sn
+                    JOIN shortnotelegsubsec snlss ON sn.shortNoteId = snlss.shortNoteId
+                    JOIN legislationsubsection lss ON snlss.legislationSubSectionId = lss.legislationSubSectionId
+                    WHERE sn.judgmentId = j.judgmentId 
+                    AND (${subsectionKeywords.map(kw => `lss.legislationSubSectionName = ?`).join(' OR ')})
+                )`
+            );
+        }
+  
+        // Add conditions for other keywords (topics, judges, advocates)
+        if (topicKeywords.length > 0) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM judgmenttopics jt
+                    JOIN topic t ON jt.topicId = t.topicId
+                    WHERE jt.judgmentId = j.judgmentId 
+                    AND (${topicKeywords.map(kw => `t.topicName LIKE ?`).join(' OR ')})
+                )`
+            );
+        }
+  
+        if (judgeKeywords.length > 0) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM judgmentjudges jj
+                    JOIN judge ju ON jj.judgeId = ju.judgeId
+                    WHERE jj.judgmentId = j.judgmentId 
+                    AND (${judgeKeywords.map(kw => `ju.judgeName LIKE ?`).join(' OR ')})
+                )`
+            );
+        }
+  
+        if (advocateKeywords.length > 0) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1 
+                    FROM judgmentadvocates ja
+                    JOIN advocate a ON ja.advocateId = a.advocateId
+                    WHERE ja.judgmentId = j.judgmentId 
+                    AND (${advocateKeywords.map(kw => `a.advocateName LIKE ?`).join(' OR ')})
+                )`
+            );
+        }
+  
+        if (conditions.length > 0) {
+            query += conditions.join(' AND ');
+        } else {
+            // If no conditions, select everything (you may want to handle this case differently)
+            query += "1=1";
+        }
+  
+        query += `
+            ORDER BY 
+                j.judgmentCitation DESC
+        `;
+  
+        const queryParams = [
+            ...actKeywords.map(kw => `%${kw}%`),
+            ...sectionKeywords.map(kw => `%${kw}%`),
+            ...subsectionKeywords.map(kw => `${kw}`),  // exact match for subsection
+            ...topicKeywords.map(kw => `%${kw}%`),
+            ...judgeKeywords.map(kw => `%${kw}%`),
+            ...advocateKeywords.map(kw => `%${kw}%`)
+        ];
+  
+        const [rows] = await connection.execute(query, queryParams);
+        return rows;
+    } catch (error) {
+        console.error('Error executing query:', error);
+        throw error;
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
   }
-}
+  
 
 // Define existing models
 const Judgment = sequelize.define('Judgment', {
@@ -768,6 +781,7 @@ Citation.belongsTo(Judgment, { foreignKey: 'judgmentId' });
 
 //new citationserialno
 Judgment.hasOne(CitationSerialNo, { foreignKey: 'judgmentCitation', sourceKey: 'judgmentCitation' });
+CitationSerialNo.belongsTo(Judgment, { foreignKey: 'judgmentCitation', targetKey: 'judgmentCitation' });
 
 ShortNote.hasMany(ShortNotePara, { foreignKey: 'shortNoteId' });
 ShortNotePara.belongsTo(ShortNote, { foreignKey: 'shortNoteId' });
@@ -927,23 +941,18 @@ app.get('/judgments/:judgmentId', async (req, res) => {
     const judgment = await Judgment.findByPk(judgmentId, {
       include: [
         {
-          model: CitationSerialNo,
-          attributes: ['serialNumber'],
-          required: true
-        },
-        {
           model: JudgmentText,
           include: [
             {
               model: JudgmentTextPara,
-              attributes: ['judgementTextParaText', 'judgementTextParaNo']
+              attributes: ['judgementTextParaText', 'judgementTextParaNo','judgementTextParaType'],
             },
             {
-              model: judgmentsCited, // Ensure this model is correctly referenced
-            attributes: ['judgmentsCitedRefferedCitation', 'judgmentsCitedParties', 'judgmentsCitedEqualCitation', 'judgmentsCitedParaLink', 'judgmentsCitedText'],
-          required: false,
-          separate: true,
-          order: [['judgmentsCitedParties', 'ASC']]
+              model: judgmentsCited,
+              attributes: ['judgmentsCitedRefferedCitation', 'judgmentsCitedParties', 'judgmentsCitedEqualCitation', 'judgmentsCitedParaLink', 'judgmentsCitedText'],
+              required: false,
+              separate: true,
+              order: [['judgmentsCitedParties', 'ASC']]
             }
           ]
         },
@@ -983,6 +992,23 @@ app.get('/judgments/:judgmentId', async (req, res) => {
     const response = {
       ...judgment.toJSON()
     };
+
+    // Fetch CitationSerialNo separately
+    try {
+      const citationSerialNo = await CitationSerialNo.findOne({
+        where: { judgmentCitation: judgment.judgmentCitation },
+        attributes: ['serialNumber']
+      });
+
+      if (citationSerialNo) {
+        response.citationSerialNo = citationSerialNo.serialNumber;
+      } else {
+        response.citationSerialNo = null; // If no citation serial number is found
+      }
+    } catch (err) {
+      console.error('Error fetching CitationSerialNo:', err);
+      response.citationSerialNo = null; // Default to null if there's an error
+    }
 
     const currentCitation = judgment.judgmentCitation;
 
@@ -1032,7 +1058,6 @@ app.get('/judgments/:judgmentId', async (req, res) => {
         response.referringCitations = [];
       }
     } else {
-      // If no current citation, indicate in the response
       response.referringCitationCount = 0;
       response.referringCitations = [];
     }
@@ -1515,54 +1540,54 @@ export async function getSearchByAdvocate(advocateName) {
 
 //citation index
 app.get('/api/searchByCitation', async (req, res) => {
-    const { CitationText } = req.query;
-    if (!CitationText) {
-        return res.status(400).json({ error: 'citation is required' });
-    }
-    try {
-        const results = await getSearchByCitation(CitationText);
-        res.json(results);
-    } catch (error) {
-        console.error('Error searching by Citation:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-  });
-  export async function getSearchByCitation(CitationText) {
-    let connection;
-    try {
-        connection = await pool.getConnection();
-        const query = `
-            SELECT 
-            j.*,
-                j.judgmentId,
-                j.judgmentNoText,
-                j.judgmentCitation,
-                j.judgmentParties,
-                 ct.citationCourtName,
-                 c.courtName
-            FROM 
-                judgment j
-                 left join
-              citation ct on j.judgmentid= ct.judgmentid
-              left join 
-              court c on j.courtId = c.courtId
-            WHERE 
-                j.judgmentCitation LIKE ?
-            ORDER BY 
-              j.judgmentCitation DESC
-        `;
-        const queryParams = [`${CitationText}`];
-        const [rows] = await connection.execute(query, queryParams);
-        return rows;
-    } catch (error) {
-        console.error('Error executing query:', error);
-        throw error;
-    } finally {
-        if (connection) {
-            connection.release();
-        }
-    }
+  const { CitationText } = req.query;
+  if (!CitationText) {
+      return res.status(400).json({ error: 'citation is required' });
   }
+  try {
+      const results = await getSearchByCitation(CitationText);
+      res.json(results);
+  } catch (error) {
+      console.error('Error searching by Citation:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+export async function getSearchByCitation(CitationText) {
+  let connection;
+  try {
+      connection = await pool.getConnection();
+      const query = `
+          SELECT 
+          j.*,
+              j.judgmentId,
+              j.judgmentNoText,
+              j.judgmentCitation,
+              j.judgmentParties,
+               ct.citationCourtName,
+               c.courtName
+          FROM 
+              judgment j
+               left join
+            citation ct on j.judgmentid= ct.judgmentid
+            left join 
+            court c on j.courtId = c.courtId
+          WHERE 
+              j.judgmentCitation LIKE ?
+          ORDER BY 
+            j.judgmentCitation DESC
+      `;
+      const queryParams = [`${CitationText}`];
+      const [rows] = await connection.execute(query, queryParams);
+      return rows;
+  } catch (error) {
+      console.error('Error executing query:', error);
+      throw error;
+  } finally {
+      if (connection) {
+          connection.release();
+      }
+  }
+}
 
 //Equivalent Index
 
@@ -1700,21 +1725,28 @@ app.get('/api/sections', async (req, res) => {
 // fetch sub sections based on section DropDown
 app.get('/api/subsections', async (req, res) => {
   try {
-    const { legislationSectionId } = req.query;
-    const query = `
-      SELECT 
-        legislationSubSectionId,
-        legislationSubSectionName
-      FROM 
-        legislationsubsection
-      WHERE 
-        legislationSectionId = ?
-    `;
-    const [rows] = await pool.query(query, [legislationSectionId]);
-    res.json(rows);
+      const { legislationSectionId } = req.query;
+
+      if (!legislationSectionId) {
+          return res.status(400).json({ error: 'legislationSectionId is required' });
+      }
+
+      const query = `
+          SELECT 
+              legislationSubSectionId,
+              legislationSubSectionName
+          FROM 
+              legislationsubsection
+          WHERE 
+              legislationSectionId = ?
+          ORDER BY 
+              legislationSubSectionName ASC;
+      `;
+      const [rows] = await pool.query(query, [legislationSectionId]);
+      res.json(rows);
   } catch (error) {
-    console.error('Error fetching subsections:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+      console.error('Error fetching subsections:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
@@ -1853,87 +1885,84 @@ app.get('/api/all-words', async (req, res) => {
   }
 });
 
-//Statutes
 // Route for searching statutes (bareacts)
-//Statutes
 // Route for searching statutes (bareacts)
 app.get("/api/search-bareacts", async (req, res) => {
   const { bareActId, bareActName, sectionPrefix, sectionNo, notificationName } = req.query;
 
   try {
     const query = `
-    SELECT
-      b.bareActId,
-      b.bareActName,
-      b.bareActEnactment,
-      b.bareActDate,
-      b.bareActDesc,
-      b.bareActIndex,
-      b.bareActShortName,
-      b.bareActState,
-      s.bareActSectionId,
-      s.bareActSectionNo,
-      s.bareActSectionName,
-      s.bareActSectionPrefix,        
-      s.bareActSectionText,
-      s.bareActState AS sectionState,
-      f.bareActFormId,
-      f.bareActFormName,
-      f.bareActFormHTML,
-      n.bareActNotificationId,       
-      n.bareActNotificationName,     
-      n.bareActNotificationHTML,
-      sch.bareActScheduleId,
-      sch.bareActScheduleName,
-      sch.bareActScheduleHTML,
-      l.legislationId,
-      l.legislationTypeId,
-      l.legislationNo,
-      l.legislationName,
-      l.legislationYear,
-      l.legislationHtmlContents,
-      l.legislationEnactment,
-      l.legislationDesc,
-      sn.shortNoteId,
-      sn.shortNoteText,
-      snp.shortNoteParaText,
-      snp.shortNoteParaLink,
-      ln.longNoteId,
-      ln.longNoteText,
-      lnp.longNoteParaText,
-      lnp.longNoteParaLink,
-      j.judgmentCitation,
-      j.judgmentParties -- Added judgmentParties
-    FROM
-      bareact b
-    LEFT JOIN
-      bareactsection s ON b.bareActId = s.bareActId
-    LEFT JOIN
-      bareactform f ON b.bareActId = f.bareActId
-    LEFT JOIN
-      bareactnotification n ON b.bareActId = n.bareActId
-    LEFT JOIN
-      bareactschedule sch ON b.bareActId = sch.bareActId
-    LEFT JOIN
-      legislation l ON b.bareActName = l.legislationName
-    LEFT JOIN
-      shortnoteleg snl ON l.legislationId = snl.legislationId
-    LEFT JOIN
-      shortnote sn ON snl.shortNoteId = sn.shortNoteId
-    LEFT JOIN
-      shortnotepara snp ON sn.shortNoteId = snp.shortNoteId
-    LEFT JOIN
-      longnote ln ON sn.shortNoteId = ln.shortNoteId
-    LEFT JOIN
-      longnotepara lnp ON ln.longNoteId = lnp.longNoteId
-    LEFT JOIN
-      judgment j ON sn.judgmentId = j.judgmentId
-    WHERE
-      (? IS NULL OR b.bareActId = ?)
-      AND (? IS NULL OR b.bareActName LIKE ?)
-      AND (? IS NULL OR s.bareActSectionPrefix LIKE ?)
-      AND (? IS NULL OR s.bareActSectionNo LIKE ?)
-      AND (? IS NULL OR n.bareActNotificationName LIKE ?);
+      SELECT
+        b.bareActId,
+        b.bareActName,
+        b.bareActEnactment,
+        b.bareActDate,
+        b.bareActDesc,
+        b.bareActIndex,
+        b.bareActShortName,
+        b.bareActState,
+        s.bareActSectionId,
+        s.bareActSectionNo,
+        s.bareActSectionName,
+        s.bareActSectionPrefix,
+        s.bareActSectionText,
+        s.bareActState AS sectionState,
+        f.bareActFormId,
+        f.bareActFormName,
+        f.bareActFormHTML,
+        n.bareActNotificationId,
+        n.bareActNotificationName,
+        n.bareActNotificationHTML,
+        sch.bareActScheduleId,
+        sch.bareActScheduleName,
+        sch.bareActScheduleHTML,
+        l.legislationId,
+        l.legislationTypeId,
+        l.legislationNo,
+        l.legislationName,
+        l.legislationYear,
+        l.legislationHtmlContents,
+        l.legislationEnactment,
+        l.legislationDesc,
+        sn.shortNoteId,
+        sn.shortNoteText,
+        snp.shortNoteParaText,
+        snp.shortNoteParaLink,
+        ln.longNoteId,
+        ln.longNoteText,
+        lnp.longNoteParaText,
+        lnp.longNoteParaLink,
+        j.judgmentId,
+        j.judgmentCitation,
+        j.judgmentParties
+      FROM
+        bareact b
+      LEFT JOIN
+        bareactsection s ON b.bareActId = s.bareActId
+      LEFT JOIN
+        bareactform f ON b.bareActId = f.bareActId
+      LEFT JOIN
+        bareactnotification n ON b.bareActId = n.bareActId
+      LEFT JOIN
+        bareactschedule sch ON b.bareActId = sch.bareActId
+      LEFT JOIN
+        legislation l ON b.bareActName = l.legislationName
+      LEFT JOIN
+        shortnote sn ON sn.shortNoteText LIKE CONCAT('%', l.legislationName, '%')
+      LEFT JOIN
+        shortnotepara snp ON sn.shortNoteId = snp.shortNoteId
+      LEFT JOIN
+        longnote ln ON sn.shortNoteId = ln.longNoteId
+      LEFT JOIN
+        longnotepara lnp ON ln.longNoteId = lnp.longNoteId
+      LEFT JOIN
+        judgment j ON sn.judgmentId = j.judgmentId
+      WHERE
+        (? IS NULL OR b.bareActId = ?)
+        AND (? IS NULL OR b.bareActName LIKE ?)
+        AND (? IS NULL OR s.bareActSectionPrefix LIKE ?)
+        AND (? IS NULL OR s.bareActSectionNo LIKE ?)
+        AND (? IS NULL OR n.bareActNotificationName LIKE ?);
     `;
 
     const queryParams = [
@@ -1951,13 +1980,48 @@ app.get("/api/search-bareacts", async (req, res) => {
 
     console.log("Query Parameters:", queryParams);
 
-    const [rows] = await pool.query(query, queryParams);
+    try {
+      const [rows] = await pool.query(query, queryParams);
+    
+      const organizedData = [];
+    
+      // Map to organize short notes by citation and parties
+      const shortNotesMap = {};
 
-    const organizedData = [];
-
-    rows.forEach((row) => {
-      const existingItem = organizedData.find((item) => item.bareActId === row.bareActId);
-      if (existingItem) {
+      rows.forEach((row) => {
+        // Find existing item or create new one
+        let existingItem = organizedData.find((item) => item.bareActId === row.bareActId);
+    
+        if (!existingItem) {
+          existingItem = {
+            bareActId: row.bareActId,
+            bareActName: row.bareActName,
+            bareActEnactment: row.bareActEnactment,
+            bareActDate: row.bareActDate,
+            bareActDesc: row.bareActDesc,
+            bareActIndex: row.bareActIndex,
+            bareActShortName: row.bareActShortName,
+            bareActState: row.bareActState,
+            sections: [],
+            forms: [],
+            notifications: [],
+            schedules: [],
+            legislation: {
+              legislationId: row.legislationId,
+              legislationTypeId: row.legislationTypeId,
+              legislationNo: row.legislationNo,
+              legislationName: row.legislationName,
+              legislationYear: row.legislationYear,
+              legislationHtmlContents: row.legislationHtmlContents,
+              legislationEnactment: row.legislationEnactment,
+              legislationDesc: row.legislationDesc,
+              shortNotes: [],  // Initialize shortNotes as an empty array
+            }
+          };
+          organizedData.push(existingItem);
+        }
+    
+        // Handle sections
         if (row.bareActSectionId && !existingItem.sections.some((section) => section.sectionId === row.bareActSectionId)) {
           existingItem.sections.push({
             sectionId: row.bareActSectionId,
@@ -1968,6 +2032,8 @@ app.get("/api/search-bareacts", async (req, res) => {
             sectionState: row.sectionState,
           });
         }
+    
+        // Handle forms
         if (row.bareActFormId && !existingItem.forms.some((form) => form.formId === row.bareActFormId)) {
           existingItem.forms.push({
             formId: row.bareActFormId,
@@ -1975,6 +2041,8 @@ app.get("/api/search-bareacts", async (req, res) => {
             formHTML: row.bareActFormHTML,
           });
         }
+    
+        // Handle notifications
         if (row.bareActNotificationId && !existingItem.notifications.some((notification) => notification.notificationId === row.bareActNotificationId)) {
           existingItem.notifications.push({
             notificationId: row.bareActNotificationId,
@@ -1982,6 +2050,8 @@ app.get("/api/search-bareacts", async (req, res) => {
             notificationHTML: row.bareActNotificationHTML,
           });
         }
+    
+        // Handle schedules
         if (row.bareActScheduleId && !existingItem.schedules.some((schedule) => schedule.scheduleId === row.bareActScheduleId)) {
           existingItem.schedules.push({
             scheduleId: row.bareActScheduleId,
@@ -1989,183 +2059,64 @@ app.get("/api/search-bareacts", async (req, res) => {
             scheduleHTML: row.bareActScheduleHTML,
           });
         }
-        if (!existingItem.legislation) {
-          existingItem.legislation = {
-            legislationId: row.legislationId,
-            legislationTypeId: row.legislationTypeId,
-            legislationNo: row.legislationNo,
-            legislationName: row.legislationName,
-            legislationYear: row.legislationYear,
-            legislationHtmlContents: row.legislationHtmlContents,
-            legislationEnactment: row.legislationEnactment,
-            legislationDesc: row.legislationDesc,
-            shortNotes: [],
-            judgmentCitations: {}  // Initialize as an object to hold citations per short note
-          };
+    
+        // Initialize shortNotes for legislation
+        if (!existingItem.legislation.shortNotes) {
+          existingItem.legislation.shortNotes = [];
         }
 
-        let existingShortNote = existingItem.legislation.shortNotes.find(note => note.shortNoteId === row.shortNoteId);
-        if (!existingShortNote && row.shortNoteId) {
-          existingShortNote = {
-            shortNoteId: row.shortNoteId,
-            shortNoteText: row.shortNoteText,
-            shortNoteParas: [],
-            longNotes: [],
-            judgmentCitations: [],  // Initialize judgmentCitations for this short note
-            judgmentParties: []    // Initialize judgmentParties for this short note
-          };
-          existingItem.legislation.shortNotes.push(existingShortNote);
-        }
-
-        if (existingShortNote && row.shortNoteParaText && !existingShortNote.shortNoteParas.some(note => note.shortNoteParaText === row.shortNoteParaText)) {
-          existingShortNote.shortNoteParas.push({
-            shortNoteParaText: row.shortNoteParaText,
-            shortNoteParaLink: row.shortNoteParaLink,
-          });
-        }
-
-        if (existingShortNote && row.longNoteId && !existingShortNote.longNotes.some(note => note.longNoteId === row.longNoteId)) {
-          existingShortNote.longNotes.push({
-            longNoteId: row.longNoteId,
-            longNoteText: row.longNoteText,
-            longNoteParas: []
-          });
-        }
-
-        let existingLongNote = existingShortNote ? existingShortNote.longNotes.find(note => note.longNoteId === row.longNoteId) : null;
-        if (existingLongNote && row.longNoteParaText && !existingLongNote.longNoteParas.some(note => note.longNoteParaText === row.longNoteParaText)) {
-          existingLongNote.longNoteParas.push({
-            longNoteParaText: row.longNoteParaText,
-            longNoteParaLink: row.longNoteParaLink,
-          });
-        }
-
-        // Add judgmentCitation to the specific short note if it exists
-        if (row.judgmentCitation && existingShortNote && !existingShortNote.judgmentCitations.includes(row.judgmentCitation)) {
-          existingShortNote.judgmentCitations.push(row.judgmentCitation);
-        }
-
-        // Add judgmentParties to the specific short note if it exists
-        if (row.judgmentParties && existingShortNote && !existingShortNote.judgmentParties.includes(row.judgmentParties)) {
-          existingShortNote.judgmentParties.push(row.judgmentParties);
-        }
-
-      } else {
-        const newItem = {
-          bareActId: row.bareActId,
-          bareActName: row.bareActName,
-          bareActEnactment: row.bareActEnactment,
-          bareActDate: row.bareActDate,
-          bareActDesc: row.bareActDesc,
-          bareActIndex: row.bareActIndex,
-          bareActShortName: row.bareActShortName,
-          bareActState: row.bareActState,
-          sections: [],
-          forms: [],
-          notifications: [],
-          schedules: [],
-          legislation: {
-            legislationId: row.legislationId,
-            legislationTypeId: row.legislationTypeId,
-            legislationNo: row.legislationNo,
-            legislationName: row.legislationName,
-            legislationYear: row.legislationYear,
-            legislationHtmlContents: row.legislationHtmlContents,
-            legislationEnactment: row.legislationEnactment,
-            legislationDesc: row.legislationDesc,
-            shortNotes: [],
-            judgmentCitations: {}  // Initialize as an object to hold citations per short note
-          }
-        };
-
-        if (row.bareActSectionId) {
-          newItem.sections.push({
-            sectionId: row.bareActSectionId,
-            sectionNo: row.bareActSectionNo,
-            sectionName: row.bareActSectionName,
-            sectionPrefix: row.bareActSectionPrefix,
-            sectionText: row.bareActSectionText,
-            sectionState: row.sectionState,
-          });
-        }
-        if (row.bareActFormId) {
-          newItem.forms.push({
-            formId: row.bareActFormId,
-            formName: row.bareActFormName,
-            formHTML: row.bareActFormHTML,
-          });
-        }
-        if (row.bareActNotificationId) {
-          newItem.notifications.push({
-            notificationId: row.bareActNotificationId,
-            notificationName: row.bareActNotificationName,
-            notificationHTML: row.bareActNotificationHTML,
-          });
-        }
-        if (row.bareActScheduleId) {
-          newItem.schedules.push({
-            scheduleId: row.bareActScheduleId,
-            scheduleName: row.bareActScheduleName,
-            scheduleHTML: row.bareActScheduleHTML,
-          });
-        }
-
-        let shortNote = {
-          shortNoteId: row.shortNoteId,
-          shortNoteText: row.shortNoteText,
-          shortNoteParas: [],
-          longNotes: [],
-          judgmentCitations: [],  // Initialize judgmentCitations for this short note
-          judgmentParties: []    // Initialize judgmentParties for this short note
-        };
+        // Create a unique key for citation and parties combination
+        const citationPartiesKey = `${row.judgmentCitation}|${row.judgmentParties}`;
+    
+        // Aggregate shortNoteText for same citation and parties
         if (row.shortNoteId) {
-          newItem.legislation.shortNotes.push(shortNote);
-        }
-
-        if (row.shortNoteParaText) {
-          shortNote.shortNoteParas.push({
-            shortNoteParaText: row.shortNoteParaText,
-            shortNoteParaLink: row.shortNoteParaLink,
-          });
-        }
-
-        if (row.longNoteId) {
-          const longNote = {
-            longNoteId: row.longNoteId,
-            longNoteText: row.longNoteText,
-            longNoteParas: []
-          };
-          shortNote.longNotes.push(longNote);
-        }
-
-        if (row.longNoteParaText) {
-          const longNote = shortNote.longNotes.find(note => note.longNoteId === row.longNoteId);
-          if (longNote) {
-            longNote.longNoteParas.push({
-              longNoteParaText: row.longNoteParaText,
-              longNoteParaLink: row.longNoteParaLink,
-            });
+          if (!shortNotesMap[citationPartiesKey]) {
+            shortNotesMap[citationPartiesKey] = {
+              shortNoteId: row.shortNoteId,
+              shortNoteText: row.shortNoteText,
+              judgmentCitation: row.judgmentCitation,
+              judgmentParties: row.judgmentParties
+            };
+          } else {
+            // Add only unique shortNoteText with a line break
+            const existingText = shortNotesMap[citationPartiesKey].shortNoteText;
+            if (!existingText.includes(row.shortNoteText)) {
+              // Add space between paragraphs
+              shortNotesMap[citationPartiesKey].shortNoteText += `\n\n${row.shortNoteText}`;
+            }
           }
         }
-
-        if (row.judgmentCitation) {
-          shortNote.judgmentCitations.push(row.judgmentCitation);
-        }
-
-        if (row.judgmentParties) {
-          shortNote.judgmentParties.push(row.judgmentParties);
-        }
-
-        organizedData.push(newItem);
-      }
-    });
-
-    res.json(organizedData);
+      });
+    
+      // Add combined short notes to the legislation data
+      organizedData.forEach(item => {
+        item.legislation.shortNotes = Object.values(shortNotesMap).map(sn => ({
+          ...sn,
+          shortNoteText: sn.shortNoteText.trim()
+        }));
+      });
+    
+      // Clean up to ensure no duplicate short notes
+      organizedData.forEach(item => {
+        item.legislation.shortNotes = [...new Map(item.legislation.shortNotes.map(sn => [sn.shortNoteId, sn])).values()];
+      });
+    
+      res.json(organizedData);
+    } catch (queryError) {
+      console.error('Error executing query:', queryError);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
   } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error('Error searching bareacts:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
+
+
+
+
 
 
 
@@ -2266,7 +2217,6 @@ const __dirname = dirname(__filename);
 
 app.use('/pdfs', express.static(path.join(__dirname, 'pdfs')));
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server is running on http://45.117.65.66:${port}`);
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
 });
-
