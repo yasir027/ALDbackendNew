@@ -5,7 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { Client } from '@elastic/elasticsearch';
-
+import dotenv from 'dotenv';
+dotenv.config();
 import mysql from 'mysql2/promise';
 
 const app = express();
