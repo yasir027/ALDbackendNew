@@ -14,19 +14,33 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-const sequelize = new Sequelize('railway', 'root', 'LYeEmRNSylYdEYtMziwUtAOXTZniYJbg', {
-  host: 'junction.proxy.rlwy.net',
+// Create Sequelize instance using environment variables
+const sequelize = new Sequelize(process.env.MYSQL_DATABASE, process.env.MYSQLUSER, process.env.MYSQLPASSWORD, {
+  host: process.env.MYSQLHOST,
   dialect: 'mysql',
-  port: 12627,
+  port: parseInt(process.env.MYSQLPORT, 10), // Convert port to number
 });
 
+// Create MySQL connection pool using environment variables
 const pool = mysql.createPool({
   connectionLimit: 10,
-  host: 'junction.proxy.rlwy.net',
-  user: 'root',
-  password: 'LYeEmRNSylYdEYtMziwUtAOXTZniYJbg',
-  database: 'railway',
-  port: 12627,
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQL_DATABASE,
+  port: parseInt(process.env.MYSQLPORT, 10), // Convert port to number
+});
+
+// Example route to test database connection
+app.get('/test-connection', async (req, res) => {
+  try {
+    // Test MySQL connection
+    const [rows] = await pool.query('SELECT 1 AS test');
+    res.json({ message: 'Database connection is working', result: rows });
+  } catch (error) {
+    console.error('Error testing database connection:', error);
+    res.status(500).json({ error: 'Failed to connect to the database' });
+  }
 });
 
 
