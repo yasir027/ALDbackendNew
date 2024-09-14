@@ -1,16 +1,13 @@
 import express from 'express';
-import { Sequelize, DataTypes, Op } from 'sequelize';
+import { Sequelize } from 'sequelize';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import { Client } from '@elastic/elasticsearch';
-import dotenv from 'dotenv';
-dotenv.config();
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -19,7 +16,7 @@ app.use(express.json());
 const sequelize = new Sequelize(process.env.MYSQL_DATABASE, process.env.MYSQLUSER, process.env.MYSQLPASSWORD, {
   host: process.env.MYSQLHOST,
   dialect: 'mysql',
-  port: parseInt(process.env.MYSQLPORT, 10), // Convert port to number
+  port: parseInt(process.env.MYSQLPORT, 10),
 });
 
 // Create MySQL connection pool using environment variables
@@ -29,13 +26,12 @@ const pool = mysql.createPool({
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQL_DATABASE,
-  port: parseInt(process.env.MYSQLPORT, 10), // Convert port to number
+  port: parseInt(process.env.MYSQLPORT, 10),
 });
 
-// Example route to test database connection
+// Test route
 app.get('/test-connection', async (req, res) => {
   try {
-    // Test MySQL connection
     const [rows] = await pool.query('SELECT 1 AS test');
     res.json({ message: 'Database connection is working', result: rows });
   } catch (error) {
@@ -43,7 +39,6 @@ app.get('/test-connection', async (req, res) => {
     res.status(500).json({ error: 'Failed to connect to the database' });
   }
 });
-
 
 
 
