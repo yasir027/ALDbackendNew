@@ -99,7 +99,18 @@ const client = new Client({
     }
   }
 
-  async function indexData() {
+
+app.get('/index-data', async (req, res) => {
+  try {
+    await indexData(); // Call your indexing function
+    res.status(200).send('Indexing started');
+  } catch (error) {
+    console.error('Error indexing data:', error);
+    res.status(500).send('Error starting indexing');
+  }
+});
+
+async function indexData() {
   const connection = await mysql.createConnection({
     host: process.env.MYSQLHOST,
     user: process.env.MYSQLUSER,
