@@ -65,26 +65,31 @@ const client = new Client({
   }
 
   async function createIndexWithMapping() {
-    await client.indices.create({
-      index: 'jud',
-      body: {
-        mappings: {
-          properties: {
-            judgmentId: { type: 'integer' },
-            judgmentDOJ: { type: 'text' },
-            judgmentParties: { type: 'text' },
-            judgmentCitation: { type: 'text' },
-            courtName: { type: 'text' },
-            judgementTextParaText: { type: 'text' },
-            shortNoteText: { type: 'text' },
-            longNoteParaText: { type: 'text' },
-            shortNoteParaText: { type: 'text' }
-          }
+  const indexName = 'jud';
+  
+  // Log the Elasticsearch node and the index API endpoint
+  console.log(`Creating index '${indexName}' on: ${process.env.ELASTICSEARCH_NODE}/_index/${indexName}`);
+
+  await client.indices.create({
+    index: indexName,
+    body: {
+      mappings: {
+        properties: {
+          judgmentId: { type: 'integer' },
+          judgmentDOJ: { type: 'text' },
+          judgmentParties: { type: 'text' },
+          judgmentCitation: { type: 'text' },
+          courtName: { type: 'text' },
+          judgementTextParaText: { type: 'text' },
+          shortNoteText: { type: 'text' },
+          longNoteParaText: { type: 'text' },
+          shortNoteParaText: { type: 'text' }
         }
       }
-    });
-    console.log('Index created with mapping: jud');
-  }
+    }
+  });
+  console.log(`Index '${indexName}' created with mapping`);
+}
 
   async function bulkIndexData(bulkData) {
     try {
